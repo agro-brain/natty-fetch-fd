@@ -132,6 +132,7 @@ const setEvents = (xhr, options) => {
 }
 
 const defaultOptions = {
+  async: TRUE,
   url: '',
   mark: {},
   urlMark: TRUE,
@@ -151,7 +152,6 @@ const defaultOptions = {
 }
 
 export default function ajax(options) {
-
   options = extend({}, defaultOptions, options)
 
   // 是否跨域
@@ -166,7 +166,7 @@ export default function ajax(options) {
     extend({}, options.urlMark ? options.mark : {}, options.method === GET ? options.data : {}, options.query),
     options.urlStamp,
     options.traditional
-  ))
+  ), options.async)
 
   // NOTE 生产环境的Server端, `Access-Control-Allow-Origin`的值一定不要配置成`*`!!! 而且`Access-Control-Allow-Credentials`应该是true!!!
   // NOTE 如果Server端的`responseHeader`配置了`Access-Control-Allow-Origin`的值是通配符`*` 则前端`withCredentials`是不能使用true值的
@@ -178,7 +178,7 @@ export default function ajax(options) {
 
   let data;
 
-  if(options.data.constructor === FormData) {
+  if(options.data && options.data.constructor === FormData) {
     data = options.data
   }else if (header['Content-Type'] && ~header['Content-Type'].indexOf('application/x-www-form-urlencoded')) {
     data = param(options.data, options.traditional)

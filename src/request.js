@@ -3,15 +3,11 @@ import ajax from './__AJAX__'
 import jsonp from './__JSONP__'
 
 export default class Request {
-  constructor(apiInstance) {
-    const {_path, config, api, contextId} = apiInstance
-
-    this._apiInstance = apiInstance
-
+  constructor({path, config, api, contextId}) {
     // 单次请求实例的id，用于从`api`实例的`_pendingList`中删除请求实例
-    this._rid = [contextId, _path, makeRandom(6)].join('-')
+    this._rid = [contextId, path, makeRandom(6)].join('-')
 
-    this._path = _path
+    this._path = path
     this.config = config
     this.storage = api.storage
     this.contextId = contextId
@@ -22,6 +18,7 @@ export default class Request {
   }
 
   // 发起网络请求 返回一个Promise实例
+  // 钩子事件发生的顺序：willFetch，didFetch，fit，process
   send({vars, onSuccess, onError, onComplete}) {
 
     this.vars = vars
@@ -31,7 +28,6 @@ export default class Request {
     this.onComplete = onComplete
 
     const {config} = this
-
     // 调用 willFetch 钩子
     config.willFetch(vars, config, 'remote')
 
@@ -132,6 +128,7 @@ export default class Request {
     const url = this.getFinalUrl()
 
     return ajax({
+      async: config.async,
       traditional: config.traditional,
       urlStamp: config.urlStamp,
       mark: vars.mark,
@@ -191,9 +188,9 @@ export default class Request {
       success: response => {
         this.processResponse(response)
       },
-      error: () => {
+      error: e => {
         const error = {
-          message: makeMessage('Request Error(Not Accessable JSONP)', {
+          message: makeMessage(`Request Error(Not Accessable JSONP)，${e}`, {
             context: this.contextId,
             api: vars.api,
             url: url,

@@ -1,4 +1,4 @@
-/*! natty-fetch.pc.js v2.5.8 | MIT License | fushan | https://github.com/jias/natty-fetch */
+/*! natty-fetch.pc.js v2.6.0 | MIT License | fushan | https://github.com/jias/natty-fetch */
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('natty-storage')) :
   typeof define === 'function' && define.amd ? define(['natty-storage'], factory) :
@@ -65,11 +65,6 @@ function redo(fn) {
     return ret
   }
 }
-// const random = Math.random
-// const floor = Math.floor
-// export function makeRandom() {
-//   return floor(random() * 9e9)
-// }
 
 var absoluteUrlReg = /^(https?:)?\/\//;
 function isAbsoluteUrl(url) {
@@ -229,6 +224,11 @@ function _fdAssign(fd1, fd2) {
 }
 var extend$1 = redo(_extend);
 var fdAssign$1 = redo(_fdAssign);
+// 深度拷贝
+function deepCopy$1(supplier) {
+  return _extend({}, supplier, true)
+}
+
 // export function likeArray(v) {
 //   if (!v) {
 //     return false
@@ -393,6 +393,7 @@ var util = Object.freeze({
 	isCrossDomain: isCrossDomain,
 	extend: extend$1,
 	fdAssign: fdAssign$1,
+	deepCopy: deepCopy$1,
 	each: each,
 	sortPlainObjectKey: sortPlainObjectKey$1,
 	serialize: serialize,
@@ -587,6 +588,7 @@ var setEvents = function (xhr, options, isCrossDomain$$1) {
 };
 
 var defaultOptions = {
+  async: TRUE$1,
   url: '',
   mark: {},
   urlMark: TRUE$1,
@@ -638,7 +640,7 @@ function ajax(options) {
     extend$1({}, options.urlMark ? options.mark : {}, options.method === GET ? options.data : {}, options.query),
     options.urlStamp,
     options.traditional
-  ));
+  ), options.async);
 
   // NOTE 生产环境的Server端, `Access-Control-Allow-Origin`的值一定不要配置成`*`!!! 而且`Access-Control-Allow-Credentials`应该是true!!!
   // NOTE 如果Server端的`responseHeader`配置了`Access-Control-Allow-Origin`的值是通配符`*` 则前端`withCredentials`是不能使用true值的
@@ -652,7 +654,7 @@ function ajax(options) {
 
   var data;
 
-  if(options.data.constructor === FormData) {
+  if(options.data && options.data.constructor === FormData) {
     data = options.data;
   }else if (header['Content-Type'] && ~header['Content-Type'].indexOf('application/x-www-form-urlencoded')) {
     data = param(options.data, options.traditional);
@@ -711,10 +713,18 @@ var insertScript = function (url, options) {
       }
     };
   } else {
-    script.onerror = function (e) {
+    script.onerror = function () {
       win[options.callbackName] = NULL$1;
-      options.error(e);
+      options.error((url + " 请求出错"));
       options.complete();
+    };
+    script.onload = function () {
+      setTimeout(function () {
+        if (win[options.callbackName] ) {
+          options.error(("'" + url + "' 返回值错误"));
+          options.complete();
+        }
+      }, 0);
     };
   }
 
@@ -787,18 +797,16 @@ function jsonp(options) {
   }
 }
 
-var Request = function Request(apiInstance) {
-  var _path = apiInstance._path;
-  var config = apiInstance.config;
-  var api = apiInstance.api;
-  var contextId = apiInstance.contextId;
-
-  this._apiInstance = apiInstance;
+var Request = function Request(ref) {
+  var path = ref.path;
+  var config = ref.config;
+  var api = ref.api;
+  var contextId = ref.contextId;
 
   // 单次请求实例的id，用于从`api`实例的`_pendingList`中删除请求实例
-  this._rid = [contextId, _path, makeRandom$1(6)].join('-');
+  this._rid = [contextId, path, makeRandom$1(6)].join('-');
 
-  this._path = _path;
+  this._path = path;
   this.config = config;
   this.storage = api.storage;
   this.contextId = contextId;
@@ -809,6 +817,7 @@ var Request = function Request(apiInstance) {
 };
 
 // 发起网络请求 返回一个Promise实例
+// 钩子事件发生的顺序：willFetch，didFetch，fit，process
 Request.prototype.send = function send (ref) {
     var this$1 = this;
     var vars = ref.vars;
@@ -825,7 +834,6 @@ Request.prototype.send = function send (ref) {
 
   var ref$1 = this;
     var config = ref$1.config;
-
   // 调用 willFetch 钩子
   config.willFetch(vars, config, 'remote');
 
@@ -934,6 +942,7 @@ Request.prototype.ajax = function ajax$1 () {
   var url = this.getFinalUrl();
 
   return ajax({
+    async: config.async,
     traditional: config.traditional,
     urlStamp: config.urlStamp,
     mark: vars.mark,
@@ -997,9 +1006,9 @@ Request.prototype.jsonp = function jsonp$1 () {
     success: function (response) {
       this$1.processResponse(response);
     },
-    error: function () {
+    error: function (e) {
       var error = {
-        message: makeMessage('Request Error(Not Accessable JSONP)', {
+        message: makeMessage(("Request Error(Not Accessable JSONP)，" + e), {
           context: this$1.contextId,
           api: vars.api,
           url: url,
@@ -1096,6 +1105,9 @@ var pluginLoop = function() {
   var ref = this;
   var api = ref.api;
 
+  // options.data {Object} data 数据
+  // options.header {Object} header 请求头
+  // options.duration {Number} 间隔时间
   api.loop = function (options, resolveFn, rejectFn) {
     if ( resolveFn === void 0 ) resolveFn = noop;
     if ( rejectFn === void 0 ) rejectFn = noop;
@@ -1114,7 +1126,7 @@ var pluginLoop = function() {
 
     var sleepAndRequest = function () {
       stop.looping = TRUE$1;
-      api(options.data).then(resolveFn, rejectFn);
+      api(options.data, options.header).then(resolveFn, rejectFn);
       loopTimer = setTimeout(function () {
         sleepAndRequest();
       }, options.duration);
@@ -1135,6 +1147,7 @@ var pluginSoon = function() {
     if ( successFn === void 0 ) successFn = noop;
     if ( errorFn === void 0 ) errorFn = noop;
 
+    var config = deepCopy$1(this$1.config);
     var vars = this$1.makeVars(data);
 
     // 先尝试用`storage`数据快速响应
@@ -1151,7 +1164,8 @@ var pluginSoon = function() {
     }
 
     // 再发起网络请求(内部会更新`storage`)
-    this$1.send(vars).then(function (content) {
+    // api方法是请求的入口方法，不一定会发起网络请求，api方法内部，通过调用send方法来发起真正的网络请求
+    this$1.send(vars, config, {}).then(function (content) {
       successFn({
         fromStorage: FALSE$1,
         content: content,
@@ -1165,6 +1179,8 @@ var pluginSoon = function() {
 };
 
 var config = {
+  // 是否异步，默认是，只针对ajax有效
+  async: TRUE$1,
 
   // 默认参数
   data: {},
@@ -1261,9 +1277,10 @@ var config = {
 };
 
 var extend$$1 = extend$1;
-var fdAssign$$1 = fdAssign$1;
 var runAsFn$$1 = runAsFn$1;
 var isBoolean$$1 = isBoolean$1;
+var deepCopy$$1 = deepCopy$1;
+var fdAssign$$1 = fdAssign$1;
 var isArray$$1 = isArray$1;
 var isFunction$$1 = isFunction$1;
 var sortPlainObjectKey$$1 = sortPlainObjectKey$1;
@@ -1296,12 +1313,16 @@ var API = function API(path, options, contextConfig, contextId) {
 
   this.storage = NULL$$1;
 
-  var config$$1 = this.config = this.processAPIOptions(options);
+  this.config = this.processAPIOptions(options);
 
   // `api`的实现
   // @param data {Object|Function}
+  // @param header {Object|Function} 请求`发送时`的header配置
   // @returns {Object} Promise Object
-  this.api = function (data) {
+  this.api = function (data, header) {
+    var config$$1 = deepCopy$$1(this$1.config);
+
+    extend$$1(config$$1.header, header);
 
     // 处理列队中的请求
     if (this$1._pendingList.length) {
@@ -1323,14 +1344,14 @@ var API = function API(path, options, contextConfig, contextId) {
           resolve(result.value);
         })
       } else {
-        return config$$1.retry === 0 ? this$1.send(vars) : this$1.sendWithRetry(vars)
+        return config$$1.retry === 0 ? this$1.send(vars, config$$1) : this$1.sendWithRetry(vars, config$$1)
       }
     } else {
-      return config$$1.retry === 0 ? this$1.send(vars) : this$1.sendWithRetry(vars)
+      return config$$1.retry === 0 ? this$1.send(vars, config$$1) : this$1.sendWithRetry(vars, config$$1)
     }
   };
 
-  this.api.config = config$$1;
+  this.api.config = this.config;
 
   this.api.hasPending = function () {
     return !!this$1._pendingList.length
@@ -1351,7 +1372,7 @@ var API = function API(path, options, contextConfig, contextId) {
   this.initStorage();
 
   // 启动插件
-  var plugins = isArray$$1(config$$1.plugins) ? config$$1.plugins : [];
+  var plugins = isArray$$1(this.config.plugins) ? this.config.plugins : [];
 
   for (var i=0, l=plugins.length; i<l; i++) {
     isFunction$$1(plugins[i]) && plugins[i].call(this$1, this$1);
@@ -1393,14 +1414,18 @@ API.prototype.makeVars = function makeVars (data) {
 };
 
 // 发送真正的网络请求
-API.prototype.send = function send (vars) {
+API.prototype.send = function send (vars, config$$1) {
     var this$1 = this;
 
-  var ref = this;
-    var config$$1 = ref.config;
+
 
   // 每次请求都创建一个请求实例
-  var request = new Request(this);
+  var request = new Request({
+    path: this._path, 
+    config: config$$1, 
+    api: this.api, 
+    contextId: this.contextId,
+  });
 
   this._pendingList.push(request);
 
@@ -1436,11 +1461,9 @@ API.prototype.send = function send (vars) {
   return defer.promise
 };
 
-API.prototype.sendWithRetry = function sendWithRetry (vars) {
+// 重试
+API.prototype.sendWithRetry = function sendWithRetry (vars, config$$1) {
     var this$1 = this;
-
-  var ref = this;
-    var config$$1 = ref.config;
 
   return new config$$1.Promise(function (resolve, reject) {
 
@@ -1448,7 +1471,7 @@ API.prototype.sendWithRetry = function sendWithRetry (vars) {
     var sendOneTime = function () {
       // 更新的重试次数
       vars.mark._retryTime = retryTime;
-      this$1.send(vars).then(function (content) {
+      this$1.send(vars, config$$1).then(function (content) {
         resolve(content);
       }, function (error) {
         if (retryTime === config$$1.retry) {
@@ -1616,7 +1639,7 @@ nattyFetch.create = function (options) {
 
 extend$$1(nattyFetch, {
   onlyForModern: !true, // eslint-disable-line
-  version: '2.5.8',
+  version: '2.6.0',
   _util: util,
   _event: event,
   _ajax: ajax,

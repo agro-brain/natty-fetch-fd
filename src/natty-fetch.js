@@ -2,7 +2,7 @@ import nattyStorage from 'natty-storage'
 import * as util from './util'
 
 const {
-  extend, fdAssign, runAsFn, isBoolean,
+  extend, runAsFn, isBoolean, deepCopy, fdAssign,
   isArray, isFunction, sortPlainObjectKey, isEmptyObject,
   isPlainObject, dummyPromise,
   isString, NULL, TRUE, FALSE, hasConsole, makeRandom,
@@ -14,8 +14,8 @@ import Defer from './defer'
 import event from './event'
 
 // 内置插件
-import pluginLoop from './plugin.loop'
-import pluginSoon from './plugin.soon'
+import pluginLoop from './plugin-loop'
+import pluginSoon from './plugin-soon'
 
 // 全局默认配置
 import defaultGlobalConfig from './default-global-config'
@@ -36,12 +36,16 @@ class API {
 
     this.storage = NULL
 
-    const config = this.config = this.processAPIOptions(options)
+    this.config = this.processAPIOptions(options)
 
     // `api`的实现
     // @param data {Object|Function}
+    // @param header {Object|Function} 请求`发送时`的header配置
     // @returns {Object} Promise Object
-    this.api = data => {
+    this.api = (data, header) => {
+      const config = deepCopy(this.config)
+
+      extend(config.header, header)
 
       // 处理列队中的请求
       if (this._pendingList.length) {
@@ -63,14 +67,14 @@ class API {
             resolve(result.value)
           })
         } else {
-          return config.retry === 0 ? this.send(vars) : this.sendWithRetry(vars)
+          return config.retry === 0 ? this.send(vars, config) : this.sendWithRetry(vars, config)
         }
       } else {
-        return config.retry === 0 ? this.send(vars) : this.sendWithRetry(vars)
+        return config.retry === 0 ? this.send(vars, config) : this.sendWithRetry(vars, config)
       }
     }
 
-    this.api.config = config
+    this.api.config = this.config
 
     this.api.hasPending = () => {
       return !!this._pendingList.length
@@ -91,7 +95,7 @@ class API {
     this.initStorage()
 
     // 启动插件
-    let plugins = isArray(config.plugins) ? config.plugins : []
+    let plugins = isArray(this.config.plugins) ? this.config.plugins : []
 
     for (let i=0, l=plugins.length; i<l; i++) {
       isFunction(plugins[i]) && plugins[i].call(this, this)
@@ -132,11 +136,16 @@ class API {
   }
 
   // 发送真正的网络请求
-  send(vars) {
-    const {config} = this
+  send(vars, config) {
+
 
     // 每次请求都创建一个请求实例
-    const request = new Request(this)
+    const request = new Request({
+      path: this._path, 
+      config, 
+      api: this.api, 
+      contextId: this.contextId,
+    })
 
     this._pendingList.push(request)
 
@@ -172,16 +181,15 @@ class API {
     return defer.promise
   }
 
-  sendWithRetry(vars) {
-    const {config} = this
-
+  // 重试
+  sendWithRetry(vars, config) {
     return new config.Promise((resolve, reject) => {
 
       let retryTime = 0
       const sendOneTime = () => {
         // 更新的重试次数
         vars.mark._retryTime = retryTime
-        this.send(vars).then(content => {
+        this.send(vars, config).then(content => {
           resolve(content)
         }, error => {
           if (retryTime === config.retry) {

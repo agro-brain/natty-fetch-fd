@@ -2,6 +2,7 @@ node_modules/
 .deploy/
 design/
 .idea/
+.vscode/
 test/bundle.js
 test/bundle.js.map
 ignore/

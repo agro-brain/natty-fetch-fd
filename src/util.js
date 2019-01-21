@@ -56,11 +56,6 @@ export function redo(fn) {
     return ret
   }
 }
-// const random = Math.random
-// const floor = Math.floor
-// export function makeRandom() {
-//   return floor(random() * 9e9)
-// }
 
 const absoluteUrlReg = /^(https?:)?\/\//
 export function isAbsoluteUrl(url) {
@@ -214,6 +209,11 @@ function _fdAssign(fd1 = {}, fd2 = {}) {
 const extend = redo(_extend);
 const fdAssign = redo(_fdAssign);
 export {extend, fdAssign}
+
+// 深度拷贝
+export function deepCopy(supplier) {
+  return _extend({}, supplier, true)
+}
 
 // export function likeArray(v) {
 //   if (!v) {
