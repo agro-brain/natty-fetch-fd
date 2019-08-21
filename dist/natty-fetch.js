@@ -1,4 +1,4 @@
-/*! natty-fetch.js v2.6.0 | MIT License | fushan | https://github.com/jias/natty-fetch */
+/*! natty-fetch.js v2.6.1 | MIT License | fushan | https://github.com/jias/natty-fetch */
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('natty-storage')) :
   typeof define === 'function' && define.amd ? define(['natty-storage'], factory) :
@@ -391,6 +391,12 @@ var util = Object.freeze({
 	makeMessage: makeMessage
 });
 
+/*
+ * @Author: yanjun.zsj
+ * @Date: 2019-03-14 09:49:39
+ * @LastEditors: yanjun.zsj
+ * @LastEditTime: 2019-08-21 10:33:09
+ */
 var supportCORS = UNDEFINED !== typeof XMLHttpRequest && 'withCredentials' in (new XMLHttpRequest());
 var GET = 'GET';
 var SCRIPT = 'script';
@@ -695,6 +701,12 @@ function jsonp(options) {
   }
 }
 
+/*
+ * @Author: yanjun.zsj
+ * @Date: 2019-03-14 09:49:39
+ * @LastEditors: yanjun.zsj
+ * @LastEditTime: 2019-08-21 10:53:28
+ */
 var Request = function Request(ref) {
   var path = ref.path;
   var config = ref.config;
@@ -809,7 +821,8 @@ Request.prototype.getFinalUrl = function getFinalUrl () {
   if (!url) { return EMPTY }
   var prefixKey = config.mock ? 'mockUrlPrefix' : 'urlPrefix';
   var suffixKey = config.mock ? 'mockUrlSuffix' : 'urlSuffix';
-  var prefix = config[prefixKey] && !isAbsoluteUrl(url) && !isRelativeUrl(url) ? config[prefixKey] : EMPTY;
+  // const prefix = config[prefixKey] && !isAbsoluteUrl(url) && !isRelativeUrl(url) ? config[prefixKey] : EMPTY
+  var prefix = config[prefixKey] ? config[prefixKey] : EMPTY;
   var suffix = config[suffixKey] ? config[suffixKey]: EMPTY;
 
   url = prefix + url + suffix;
@@ -1537,7 +1550,7 @@ nattyFetch.create = function (options) {
 
 extend$$1(nattyFetch, {
   onlyForModern: !false, // eslint-disable-line
-  version: '2.6.0',
+  version: '2.6.1',
   _util: util,
   _event: event,
   _ajax: ajax,
