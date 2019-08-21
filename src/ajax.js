@@ -1,3 +1,9 @@
+/*
+ * @Author: yanjun.zsj
+ * @Date: 2019-03-14 09:49:39
+ * @LastEditors: yanjun.zsj
+ * @LastEditTime: 2019-08-21 10:33:09
+ */
 import {
   extend, appendQueryString, noop, isCrossDomain, isBoolean, param,
   TRUE, FALSE, NULL, UNDEFINED,

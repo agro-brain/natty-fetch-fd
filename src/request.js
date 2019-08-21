@@ -1,3 +1,9 @@
+/*
+ * @Author: yanjun.zsj
+ * @Date: 2019-03-14 09:49:39
+ * @LastEditors: yanjun.zsj
+ * @LastEditTime: 2019-08-21 10:53:28
+ */
 import {extend, NULL, TRUE, FALSE, isAbsoluteUrl, isRelativeUrl, EMPTY, makeRandom, makeMessage} from './util'
 import ajax from './__AJAX__'
 import jsonp from './__JSONP__'
@@ -101,7 +107,8 @@ export default class Request {
     if (!url) return EMPTY
     const prefixKey = config.mock ? 'mockUrlPrefix' : 'urlPrefix'
     const suffixKey = config.mock ? 'mockUrlSuffix' : 'urlSuffix'
-    const prefix = config[prefixKey] && !isAbsoluteUrl(url) && !isRelativeUrl(url) ? config[prefixKey] : EMPTY
+    // const prefix = config[prefixKey] && !isAbsoluteUrl(url) && !isRelativeUrl(url) ? config[prefixKey] : EMPTY
+    const prefix = config[prefixKey] ? config[prefixKey] : EMPTY
     const suffix = config[suffixKey] ? config[suffixKey]: EMPTY
 
     url = prefix + url + suffix
